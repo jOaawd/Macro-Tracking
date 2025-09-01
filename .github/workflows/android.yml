@@ -25,7 +25,7 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      - name: Initialize Capacitor
+      - name: Initialize Capacitor if missing
         run: |
           if [ ! -f capacitor.config.json ]; then
             npx cap init "MacroTracking" "com.fmode.macrotracking"
