@@ -24,7 +24,7 @@ interface DailyGoals {
   calories: number;
   carbs: number;
   protein: number;
-  water: number; // in glasses
+  water: number; 
 }
 
 interface DailyData {
@@ -176,7 +176,6 @@ const CalorieTracker = () => {
     });
   };
 
-  // Calculate totals
   const totals = dailyData.foods.reduce(
     (acc, food) => ({
       calories: acc.calories + food.calories,
