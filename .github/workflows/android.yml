@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build APK
 
 on:
   push:
@@ -22,24 +22,32 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Web App
+      - name: Build web assets
         run: npm run build
 
-      - name: Install Capacitor & Android platform
+      - name: Initialize Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli
+          if [ ! -f capacitor.config.json ]; then
+            npx cap init "MacroTracking" "com.fmode.macrotracking"
+          fi
+
+      - name: Install Capacitor packages
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android
+
+      - name: Add Android platform
+        run: |
           npx cap add android || echo "Android platform already exists"
           npx cap sync android
 
-      - name: Set up JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Build Android APK
+      - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
