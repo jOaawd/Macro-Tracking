@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Android APK
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
@@ -25,32 +25,44 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      - name: Initialize Capacitor if missing
-        run: |
-          if [ ! -f capacitor.config.json ]; then
-            npx cap init "MacroTracking" "com.fmode.macrotracking"
-          fi
-
-      - name: Install Capacitor packages
-        run: npm install @capacitor/core @capacitor/cli @capacitor/android
-
-      - name: Add Android platform
-        run: |
-          npx cap add android || echo "Android platform already exists"
-          npx cap sync android
-
-      - name: Set up Java
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
+      - name: Initialize Capacitor
+        shell: bash
+        run: |
+          if [ ! -f capacitor.config.json ]; then
+            npx cap init "MacroTracking" "com.fmode.macrotracking"
+          else
+            echo "Capacitor config exists, skipping init"
+          fi
+
+      - name: Install Capacitor Android platform
+        run: npm install @capacitor/android
+
+      - name: Add Android platform (skip if exists)
+        shell: bash
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          else
+            echo "Android platform exists, skipping add"
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
       - name: Build APK
-        working-directory: android
-        run: ./gradlew assembleDebug
+        shell: bash
+        run: |
+          cd android
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: MacroTracking-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
