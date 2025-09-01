@@ -3,8 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
-import { Droplets, Utensils, Target, AlertTriangle } from 'lucide-react';
+import { Droplets, Utensils, Target, AlertTriangle, Calendar as CalendarIcon, Settings } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface FoodEntry {
   id: string;
@@ -19,7 +24,7 @@ interface DailyGoals {
   calories: number;
   carbs: number;
   protein: number;
-  water: number; 
+  water: number; // in glasses
 }
 
 interface DailyData {
@@ -29,29 +34,47 @@ interface DailyData {
 }
 
 const CalorieTracker = () => {
-  const [dailyGoals] = useState<DailyGoals>({
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dailyGoals, setDailyGoals] = useState<DailyGoals>({
     calories: 2000,
-    carbs: 250, // grams
-    protein: 150, // grams
-    water: 8 // glasses
+    carbs: 250,
+    protein: 150,
+    water: 8
   });
-
   const [dailyData, setDailyData] = useState<DailyData>({
     foods: [],
     waterGlasses: 0,
     date: new Date().toDateString()
   });
-
   const [newFood, setNewFood] = useState({
     name: '',
     calories: '',
     carbs: '',
     protein: ''
   });
+  const [showGoalsDialog, setShowGoalsDialog] = useState(false);
+  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [tempGoals, setTempGoals] = useState<DailyGoals>({
+    calories: 2000,
+    carbs: 250,
+    protein: 150,
+    water: 8
+  });
 
   useEffect(() => {
-    const today = new Date().toDateString();
-    const savedData = localStorage.getItem(`calorieData_${today}`);
+    const savedGoals = localStorage.getItem('userGoals');
+    if (savedGoals) {
+      setDailyGoals(JSON.parse(savedGoals));
+      setTempGoals(JSON.parse(savedGoals));
+    } else {
+      setIsFirstTime(true);
+      setShowGoalsDialog(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const dateKey = selectedDate.toDateString();
+    const savedData = localStorage.getItem(`calorieData_${dateKey}`);
     if (savedData) {
       const parsed = JSON.parse(savedData);
       setDailyData({
@@ -61,12 +84,32 @@ const CalorieTracker = () => {
           timestamp: new Date(food.timestamp)
         }))
       });
+    } else {
+      setDailyData({
+        foods: [],
+        waterGlasses: 0,
+        date: dateKey
+      });
     }
-  }, []);
+  }, [selectedDate]);
 
   useEffect(() => {
-    localStorage.setItem(`calorieData_${dailyData.date}`, JSON.stringify(dailyData));
+    if (dailyData.foods.length > 0 || dailyData.waterGlasses > 0) {
+      localStorage.setItem(`calorieData_${dailyData.date}`, JSON.stringify(dailyData));
+    }
   }, [dailyData]);
+
+  const saveGoals = () => {
+    setDailyGoals(tempGoals);
+    localStorage.setItem('userGoals', JSON.stringify(tempGoals));
+    setShowGoalsDialog(false);
+    setIsFirstTime(false);
+    
+    toast({
+      title: "Goals Updated!",
+      description: "Your daily nutrition goals have been saved."
+    });
+  };
 
   const addFood = () => {
     if (!newFood.name || !newFood.calories) {
@@ -133,6 +176,7 @@ const CalorieTracker = () => {
     });
   };
 
+  // Calculate totals
   const totals = dailyData.foods.reduce(
     (acc, food) => ({
       calories: acc.calories + food.calories,
@@ -143,6 +187,9 @@ const CalorieTracker = () => {
   );
 
   useEffect(() => {
+    const today = new Date().toDateString();
+    if (dailyData.date !== today) return; 
+    
     if (totals.calories > dailyGoals.calories) {
       toast({
         title: "Calorie Alert!",
@@ -150,21 +197,7 @@ const CalorieTracker = () => {
         variant: "destructive"
       });
     }
-    if (totals.carbs > dailyGoals.carbs) {
-      toast({
-        title: "Carb Alert!",
-        description: `You've exceeded your daily carb goal by ${Math.round(totals.carbs - dailyGoals.carbs)}g.`,
-        variant: "destructive"
-      });
-    }
-    if (totals.protein > dailyGoals.protein) {
-      toast({
-        title: "Protein Alert!",
-        description: `You've exceeded your daily protein goal by ${Math.round(totals.protein - dailyGoals.protein)}g.`,
-        variant: "destructive"
-      });
-    }
-  }, [totals, dailyGoals]);
+  }, [totals, dailyGoals, dailyData.date]);
 
   const getProgressColor = (current: number, goal: number) => {
     const percentage = (current / goal) * 100;
@@ -177,16 +210,116 @@ const CalorieTracker = () => {
     return Math.min((current / goal) * 100, 100);
   };
 
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
+  const dateTitle = isToday ? "Today's Progress" : format(selectedDate, "MMMM d, yyyy");
+
   return (
     <div className="min-h-screen bg-[image:var(--gradient-bg)] p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">Calorie Tracker</h1>
+        {/* Header with Calendar and Settings */}
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-4">
+            <h1 className="text-4xl font-bold text-foreground">Calorie Tracker</h1>
+            <Dialog open={showGoalsDialog} onOpenChange={setShowGoalsDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Goals
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>
+                    {isFirstTime ? "Set Your Daily Goals" : "Update Daily Goals"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="calories" className="text-right">
+                      Calories
+                    </Label>
+                    <Input
+                      id="calories"
+                      type="number"
+                      className="col-span-3"
+                      value={tempGoals.calories}
+                      onChange={(e) => setTempGoals(prev => ({ ...prev, calories: Number(e.target.value) }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="carbs" className="text-right">
+                      Carbs (g)
+                    </Label>
+                    <Input
+                      id="carbs"
+                      type="number"
+                      className="col-span-3"
+                      value={tempGoals.carbs}
+                      onChange={(e) => setTempGoals(prev => ({ ...prev, carbs: Number(e.target.value) }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="protein" className="text-right">
+                      Protein (g)
+                    </Label>
+                    <Input
+                      id="protein"
+                      type="number"
+                      className="col-span-3"
+                      value={tempGoals.protein}
+                      onChange={(e) => setTempGoals(prev => ({ ...prev, protein: Number(e.target.value) }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="water" className="text-right">
+                      Water (glasses)
+                    </Label>
+                    <Input
+                      id="water"
+                      type="number"
+                      className="col-span-3"
+                      value={tempGoals.water}
+                      onChange={(e) => setTempGoals(prev => ({ ...prev, water: Number(e.target.value) }))}
+                    />
+                  </div>
+                </div>
+                <Button onClick={saveGoals} className="w-full">
+                  {isFirstTime ? "Set Goals" : "Update Goals"}
+                </Button>
+              </DialogContent>
+            </Dialog>
+          </div>
           <p className="text-muted-foreground">Track your daily nutrition and stay healthy</p>
+          
+          {/* Date Navigation */}
+          <div className="flex items-center justify-center gap-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTitle}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
-        {/* OverView */}
+        {/* Daily Progress Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Calories */}
           <Card className="relative overflow-hidden shadow-[var(--shadow-card)]">
@@ -323,7 +456,7 @@ const CalorieTracker = () => {
           </Card>
         </div>
 
-        {/* Add Food  */}
+        {/* Add Food Form */}
         <Card className="shadow-[var(--shadow-card)]">
           <CardHeader>
             <div className="flex items-center space-x-2">
@@ -386,7 +519,7 @@ const CalorieTracker = () => {
         {dailyData.foods.length > 0 && (
           <Card className="shadow-[var(--shadow-card)]">
             <CardHeader>
-              <CardTitle>Today's Food Log</CardTitle>
+              <CardTitle>{isToday ? "Today's" : format(selectedDate, "MMMM d")} Food Log</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
