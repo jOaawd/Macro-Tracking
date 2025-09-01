@@ -27,7 +27,8 @@ jobs:
 
       - name: Install Capacitor & Android platform
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli
+          npx cap add android || echo "Android platform already exists"
           npx cap sync android
 
       - name: Set up JDK 17
