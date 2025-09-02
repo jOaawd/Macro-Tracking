@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -16,37 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
-
-      - name: Install npm dependencies
-        run: npm install
-
-      - name: Build web assets
-        run: npm run build
-
-      - name: Install Capacitor dependencies
-        run: npm install @capacitor/core @capacitor/cli @capacitor/android
-
-      - name: Initialize Capacitor if needed
-        shell: bash
-        run: |
-          if [ ! -f capacitor.config.json ]; then
-            npx cap init "MacroTracking" "com.fmode.macrotracking"
-          else
-            echo "Capacitor config exists, skipping init"
-          fi
-
-      - name: Add Android platform if missing
-        shell: bash
-        run: |
-          if [ ! -d android ]; then
-            npx cap add android
-          else
-            echo "Android platform exists, skipping add"
-          fi
-
-      - name: Copy web assets to Android
-        run: npx cap copy android
+          node-version: 18
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -54,14 +27,32 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Build Android APK
-        shell: bash
+      - name: Install dependencies
         run: |
-          cd android
-          ./gradlew assembleDebug
+          npm ci
+          npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Initialize Capacitor (if not exists)
+        run: |
+          if [ ! -f capacitor.config.json ]; then
+            npx cap init "MacroTracking" "com.fmode.macrotracking"
+          fi
+
+      - name: Add Android platform
+        run: npx cap add android || echo "Android platform already exists"
+
+      - name: Copy web assets to Android
+        run: npx cap copy android
+
+      - name: Build Android APK
+        working-directory: android
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
+          name: MacroTracking-debug.apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
