@@ -7,47 +7,42 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node 18
+      - name: Setup Node.js 18
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Setup Java 17
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Install Capacitor packages
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
+
+      - name: Sync web assets to Android
+        run: npx cap copy android
+
+      - name: Setup Java (for Gradle)
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Install Capacitor locally
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android --save-dev
-
-      - name: Ensure Capacitor config
-        run: |
-          if [ ! -f capacitor.config.json ]; then
-            npx cap init "MacroTracking" "com.fmode.macrotracking"
-          fi
-
-      - name: Build web assets
-        run: npm run build
-
-      - name: Add Android platform if missing
-        run: npx cap add android || echo "Android platform exists"
-
-      - name: Copy web assets to Android
-        run: npx cap copy android
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
 
       - name: Build APK
         working-directory: android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
