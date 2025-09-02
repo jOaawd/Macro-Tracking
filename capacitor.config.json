@@ -1,0 +1,7 @@
+{
+    "appId": "com.fmode.macrotracking",
+    "appName": "MacroTracking",
+    "webDir": "dist",
+    "bundledWebRuntime": false
+  }
+  
