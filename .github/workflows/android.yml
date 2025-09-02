@@ -14,45 +14,43 @@ jobs:
         working-directory: ./
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install NPM dependencies
-        run: npm install --legacy-peer-deps
+      - run: npm install --legacy-peer-deps
 
-      - name: Build web assets
-        run: npm run build
+      - run: npm run build
 
-      - name: Install Capacitor
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android --save-dev
+      - run: npm install @capacitor/cli @capacitor/core @capacitor/android --save-dev
 
-      - name: Ensure Android platform
-        run: |
+      - run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
 
-      - name: Copy Capacitor web assets
-        run: npx cap copy android
+      - run: npx cap copy android
 
-      - name: Remove Cordova references
-        run: |
-          sed -i '/cordova.variables.gradle/d' android/app/capacitor.build.gradle
+      - run: |
+          cat > android/app/capacitor.build.gradle <<EOL
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+dependencies {
+}
+EOL
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
+      - run: chmod +x android/gradlew
 
-      - name: Build Android APK
-        working-directory: android
+      - working-directory: android
         run: ./gradlew assembleDebug
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
