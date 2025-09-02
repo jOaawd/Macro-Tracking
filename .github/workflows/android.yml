@@ -8,34 +8,41 @@ on:
 
 jobs:
   build-android:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 18
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install npm dependencies
+        run: npm install
 
       - name: Build web assets
         run: npm run build
 
-      - name: Install Capacitor packages
-        run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
+      - name: Install Capacitor Android
+        run: npx cap add android || echo "Android platform exists"
 
-      - name: Sync web assets to Android
+      - name: Copy web assets to Android
         run: npx cap copy android
 
-      - name: Setup Java (for Gradle)
-        uses: actions/setup-java@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v2
         with:
-          distribution: temurin
-          java-version: 17
+          api-level: 34
+          build-tools: 34.0.0
+          ndk: 25.2.9519653
+          cmake: 3.27.5
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
