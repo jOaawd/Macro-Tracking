@@ -2,57 +2,42 @@ name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build-android:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
-    env:
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
-
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install npm dependencies
-        run: npm install
+      - name: Install dependencies
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
 
       - name: Build web assets
         run: npm run build
 
-      - name: Install Capacitor Android
+      - name: Ensure Capacitor config exists
+        run: |
+          if [ ! -f capacitor.config.json ]; then
+            npx cap init "MacroTracking" "com.fmode.macrotracking"
+          fi
+
+      - name: Add Android platform
         run: npx cap add android || echo "Android platform exists"
 
       - name: Copy web assets to Android
         run: npx cap copy android
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 34
-          build-tools: 34.0.0
-          ndk: 25.2.9519653
-          cmake: 3.27.5
-
-      - name: Make gradlew executable
+      - name: Make Gradle executable
         run: chmod +x android/gradlew
 
       - name: Build APK
-        working-directory: android
-        run: ./gradlew assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+        run: ./android/gradlew assembleDebug
