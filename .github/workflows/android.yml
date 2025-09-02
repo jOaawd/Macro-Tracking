@@ -47,8 +47,8 @@ EOL
 
       - run: chmod +x android/gradlew
 
-      - working-directory: android
-        run: ./gradlew assembleDebug
+      - run: ./gradlew assembleDebug
+        working-directory: android
 
       - uses: actions/upload-artifact@v4
         with:
