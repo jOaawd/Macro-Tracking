@@ -11,46 +11,51 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./
+        working-directory: android
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v3
+      - name: Set up Node 18
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - run: npm install --legacy-peer-deps
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - run: npm run build
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
 
-      - run: npm install @capacitor/cli @capacitor/core @capacitor/android --save-dev
+      - name: Build web assets
+        run: npm run build
 
-      - run: |
+      - name: Install Capacitor
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
+
+      - name: Add Android platform
+        run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
 
-      - run: npx cap copy android
+      - name: Copy web assets to Android
+        run: npx cap copy android
 
-      - run: |
-          cat > android/app/capacitor.build.gradle <<EOL
-android {
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-}
-dependencies {
-}
-EOL
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
 
-      - run: chmod +x android/gradlew
+      - name: Build APK
+        run: ./gradlew assembleDebug
 
-      - run: ./gradlew assembleDebug
-        working-directory: android
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
